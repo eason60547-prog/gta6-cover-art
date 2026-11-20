@@ -35,6 +35,22 @@ neon Pacifico subtitle, then export a PNG to share.
 | Tilted snapshots | Three overlapping tilted snapshots on a gradient |
 | Diptych | Two panels side by side |
 
+## What's new in v2
+
+- **One-click looks** — Neon Nights, Sunset Hero and Mono Ink apply a layout,
+  a colour grade and the words in one tap, so a new user sees a finished
+  cover in seconds instead of an empty editor.
+- **Drag and drop** — drop your photos straight onto the cover; the preview
+  lights up as a drop target.
+- **A title block that reads as a poster** — the centre cell now carries a big
+  halftone sun behind the lettering, the title is larger and outlined, and
+  the Mono Ink halftone is much stronger at small sizes.
+- **Watermark toggle** — an optional “Made with Vice Coast” mark on the
+  export, off by default.
+- **Export sizes labelled by use** — Square · Instagram post, Portrait ·
+  Instagram post, Landscape · desktop wallpaper / X header, Story · phone
+  story.
+
 ## Colour grades
 
 - **Vice Sunset** — hot pink-to-orange dusk
@@ -48,10 +64,10 @@ borders, a "VICE COAST" badge and a 5-star heat meter.
 
 ## Export sizes
 
-- 1080 × 1080 (square)
-- 1080 × 1350 (portrait)
-- 1920 × 1080 (landscape)
-- 1080 × 1920 (story)
+- 1080 × 1080 — Square · Instagram post
+- 1080 × 1350 — Portrait · Instagram post
+- 1920 × 1080 — Landscape · desktop wallpaper / X header
+- 1080 × 1920 — Story · phone story
 
 ## Screenshot modes
 

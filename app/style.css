@@ -124,6 +124,23 @@ body {
   accent-color: #ff2d95;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #d9cdea;
+  margin: 10px 0 0;
+  cursor: pointer;
+}
+
+.check-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #ff2d95;
+  flex: none;
+}
+
 .heat-row {
   display: flex;
   align-items: center;
@@ -215,6 +232,12 @@ body {
   font-size: 13px;
   color: #9d8ab5;
   margin: 0;
+}
+
+/* While photos are dragged over the preview, the cover shows it is a drop target. */
+.preview.dragging #cover {
+  outline: 3px dashed #ff2d95;
+  outline-offset: 4px;
 }
 
 /* Screenshot mode: the cover alone, fitted to the viewport. */

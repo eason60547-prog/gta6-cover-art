@@ -13,6 +13,15 @@ const SAMPLES = [
   { src: 'samples/pier.jpg', name: 'Pier' },
 ];
 
+// One-click looks: a finished cover in one tap — layout, grade and words
+// together, so the first thing a new user sees is a striking poster, not
+// an empty editor.
+const PRESETS = [
+  { id: 'neon-nights', label: 'Neon Nights', layout: 'hero-three', grade: 'neon', title: 'NEON NIGHTS', subtitle: 'Vice after dark', badge: 'NEON', heat: 5 },
+  { id: 'sunset-hero', label: 'Sunset Hero', layout: 'nine', grade: 'sunset', title: 'VICE COAST', subtitle: 'Neon nights, palm dreams', badge: 'VICE COAST', heat: 5 },
+  { id: 'mono-ink', label: 'Mono Ink', layout: 'tilted', grade: 'mono', title: 'VICE INK', subtitle: 'Black and white heat', badge: 'VICE INK', heat: 4 },
+];
+
 const canvas = document.getElementById('cover');
 const statusEl = document.getElementById('status');
 
@@ -24,6 +33,7 @@ const DEFAULT_STATE = {
   subtitle: 'Neon nights, palm dreams',
   badge: 'VICE COAST',
   heat: 5,
+  watermark: false,
   panels: [],
 };
 
@@ -33,6 +43,7 @@ let selectedPanel = 0;
 let undoStack = [];
 let redoStack = [];
 let editArmed = false;
+let activePreset = 'sunset-hero';
 
 /** Loads an image from a URL, resolving once it can be drawn. */
 export function loadImage(url) {
@@ -65,6 +76,24 @@ function resizePanels(layout) {
 
 function snapshot() {
   return JSON.stringify(state);
+}
+
+/** Applies a one-click look: layout, grade and words together, with the
+ *  panels reset so the sample photos fill the new layout. */
+function applyPreset(preset) {
+  pushHistory();
+  state.layout = preset.layout;
+  state.grade = preset.grade;
+  state.title = preset.title;
+  state.subtitle = preset.subtitle;
+  state.badge = preset.badge;
+  state.heat = preset.heat;
+  state.panels = defaultPanels(state.layout);
+  selectedPanel = 0;
+  activePreset = preset.id;
+  syncControls();
+  redraw();
+  statusEl.textContent = `${preset.label} look applied — export it or make it yours.`;
 }
 
 function restore(json) {
@@ -137,6 +166,12 @@ function syncControls() {
   if (size) size.value = state.size;
   const heatValue = document.getElementById('heatValue');
   if (heatValue) heatValue.textContent = '★'.repeat(state.heat) + '☆'.repeat(5 - state.heat);
+  const watermark = document.getElementById('watermark');
+  if (watermark) watermark.checked = Boolean(state.watermark);
+  document.querySelectorAll('#presets button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.preset === activePreset);
+    b.setAttribute('aria-pressed', String(b.dataset.preset === activePreset));
+  });
   syncPanelControls();
 }
 
@@ -238,6 +273,7 @@ function wireControls() {
       if (state.layout === b.dataset.layout) return;
       pushHistory();
       state.layout = b.dataset.layout;
+      activePreset = '';
       resizePanels(state.layout);
       selectedPanel = 0;
       syncControls();
@@ -250,6 +286,7 @@ function wireControls() {
       if (state.grade === b.dataset.grade) return;
       pushHistory();
       state.grade = b.dataset.grade;
+      activePreset = '';
       syncControls();
       redraw();
     });
@@ -262,24 +299,28 @@ function wireControls() {
   title.addEventListener('input', () => {
     beginEdit();
     state.title = title.value;
+    activePreset = '';
     redraw();
   });
   title.addEventListener('change', endEdit);
   subtitle.addEventListener('input', () => {
     beginEdit();
     state.subtitle = subtitle.value;
+    activePreset = '';
     redraw();
   });
   subtitle.addEventListener('change', endEdit);
   badge.addEventListener('input', () => {
     beginEdit();
     state.badge = badge.value;
+    activePreset = '';
     redraw();
   });
   badge.addEventListener('change', endEdit);
   heat.addEventListener('input', () => {
     beginEdit();
     state.heat = Number(heat.value);
+    activePreset = '';
     const heatValue = document.getElementById('heatValue');
     if (heatValue) heatValue.textContent = '★'.repeat(state.heat) + '☆'.repeat(5 - state.heat);
     redraw();
@@ -325,6 +366,37 @@ function wireControls() {
     redraw();
   });
 
+  document.getElementById('watermark').addEventListener('change', (e) => {
+    pushHistory();
+    state.watermark = e.target.checked;
+    redraw();
+    statusEl.textContent = state.watermark
+      ? 'Watermark on — exports will say “Made with Vice Coast”.'
+      : 'Watermark off — exports stay clean.';
+  });
+
+  document.querySelectorAll('#presets button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const preset = PRESETS.find((p) => p.id === b.dataset.preset);
+      if (preset) applyPreset(preset);
+    });
+  });
+
+  // Drag photos straight onto the cover: the fastest way to make it yours.
+  const preview = document.querySelector('.preview');
+  if (preview) {
+    preview.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      preview.classList.add('dragging');
+    });
+    preview.addEventListener('dragleave', () => preview.classList.remove('dragging'));
+    preview.addEventListener('drop', (e) => {
+      e.preventDefault();
+      preview.classList.remove('dragging');
+      if (e.dataTransfer?.files?.length) loadUserPhotos(e.dataTransfer.files);
+    });
+  }
+
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('redo').addEventListener('click', redo);
   document.getElementById('export').addEventListener('click', exportPNG);
@@ -350,6 +422,14 @@ function wireControls() {
 }
 
 function buildControlButtons() {
+  const presetBox = document.getElementById('presets');
+  for (const p of PRESETS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.preset = p.id;
+    b.textContent = p.label;
+    presetBox.appendChild(b);
+  }
   const layoutBox = document.getElementById('layouts');
   for (const [key, def] of Object.entries(LAYOUTS)) {
     const b = document.createElement('button');

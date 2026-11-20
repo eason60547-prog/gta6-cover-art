@@ -17,10 +17,16 @@
 
     <div class="group">
       <h3>Photos</h3>
-      <label class="field">Upload up to 4 of your own
+      <label class="field">Drop photos onto the cover, or choose up to 4 of your own
         <input id="photos" type="file" accept="image/*" multiple>
       </label>
       <p class="note">Four sample photos are loaded already. Your photos never leave this machine.</p>
+    </div>
+
+    <div class="group">
+      <h3>One-click looks</h3>
+      <div class="btn-row" id="presets" role="group" aria-label="One-click looks"></div>
+      <p class="note">One tap swaps the layout, grade and words — a finished cover in seconds.</p>
     </div>
 
     <div class="group">
@@ -74,14 +80,15 @@
 
     <div class="group">
       <h3>Export size</h3>
-      <label class="field">Post size
+      <label class="field">Post size — pick where it will be posted
         <select id="size">
-          <option value="1080x1080">1080 × 1080 — square</option>
-          <option value="1080x1350">1080 × 1350 — portrait</option>
-          <option value="1920x1080" selected>1920 × 1080 — landscape</option>
-          <option value="1080x1920">1080 × 1920 — story</option>
+          <option value="1080x1080">1080 × 1080 — Square · Instagram post</option>
+          <option value="1080x1350">1080 × 1350 — Portrait · Instagram post</option>
+          <option value="1920x1080" selected>1920 × 1080 — Landscape · desktop wallpaper / X header</option>
+          <option value="1080x1920">1080 × 1920 — Story · phone story</option>
         </select>
       </label>
+      <label class="check-row"><input id="watermark" type="checkbox"> Add “Made with Vice Coast” watermark to the export</label>
     </div>
 
     <div class="actions">
@@ -94,7 +101,7 @@
 
   <section class="preview" aria-label="Cover preview">
     <canvas id="cover" width="1920" height="1080" aria-label="The cover"></canvas>
-    <p class="hint">Live preview — every change above redraws the cover at once.</p>
+    <p class="hint">Live preview — drag your photos onto the cover, or pick a one-click look.</p>
   </section>
 </main>
 <script type="module" src="./src/main.js"></script>

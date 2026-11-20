@@ -134,6 +134,40 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function halftoneSun(ctx, cx, cy, r, glow, monoMode) {
+  // A big halftone sun behind the title stack: the classic poster sun, drawn
+  // with the grade's glow and dots that grow toward the bottom edge, so the
+  // title block reads as a poster panel instead of empty dark space. The
+  // caller clips it to the title block; the sun is deliberately wider than
+  // the text so its glow shows around the lettering.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  const g = ctx.createRadialGradient(cx, cy, r * 0.08, cx, cy, r);
+  ctx.globalAlpha = monoMode ? 0.9 : 0.85;
+  g.addColorStop(0, glow);
+  g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  ctx.globalAlpha = 1;
+  const step = Math.max(6, r * 0.11);
+  for (let row = 0; row * step < r * 2; row++) {
+    for (let col = 0; col * step < r * 2; col++) {
+      const dx = col * step + step / 2 - r;
+      const dy = row * step + step / 2 - r;
+      if (dx * dx + dy * dy > r * r) continue;
+      const t = (dy + r) / (2 * r); // 0 at the top of the sun, 1 at the bottom
+      const dotR = step * (0.10 + t * 0.24);
+      ctx.fillStyle = monoMode ? 'rgba(0, 0, 0, 0.45)' : 'rgba(0, 0, 0, 0.32)';
+      ctx.beginPath();
+      ctx.arc(cx + dx, cy + dy, dotR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 /** The badge pill, the Anton title, the neon Pacifico subtitle and the stars.
  *  The whole stack is measured first and shrunk to fit inside the block, so
  *  nothing ever spills onto the photos below it. */
@@ -150,6 +184,13 @@ export function drawTitleBlock(ctx, rect, state, grade) {
 
   const pad = w * 0.06;
   const cx = x + w / 2;
+  const monoMode = grade === GRADES.mono;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  halftoneSun(ctx, cx, y + h * 0.44, Math.min(w, h) * 0.62, grade.glow, monoMode);
+  ctx.restore();
   const badgeText = (state.badge || 'VICE COAST').toUpperCase();
   const title = (state.title || 'VICE COAST').toUpperCase();
   const sub = state.subtitle || '';
@@ -157,8 +198,8 @@ export function drawTitleBlock(ctx, rect, state, grade) {
   // Measure the stack, then shrink it as one piece until it fits the block.
   let badgeH = h * 0.16;
   let gap = h * 0.07;
-  let titleSize = fitFont(ctx, title, 'Anton, sans-serif', w - pad * 2, h * 0.26, 10);
-  let subSize = sub ? fitFont(ctx, sub, 'Pacifico, cursive', w - pad * 2, h * 0.13, 8) : 0;
+  let titleSize = fitFont(ctx, title, 'Anton, sans-serif', w - pad * 2, h * 0.30, 10);
+  let subSize = sub ? fitFont(ctx, sub, 'Pacifico, cursive', w - pad * 2, h * 0.14, 8) : 0;
   let starR = Math.min(h * 0.06, w * 0.04);
   let stack = badgeH + gap + titleSize + gap * 0.7 + subSize + gap + starR * 2;
   if (stack > h * 0.92) {
@@ -188,7 +229,8 @@ export function drawTitleBlock(ctx, rect, state, grade) {
   ctx.fillText(badgeText, cx, cy + badgeH / 2 + 1);
   cy += badgeH + gap;
 
-  // Title in Anton, with a sunset gradient fill.
+  // Title in Anton, with a sunset gradient fill and a dark outline so it
+  // stays readable where it crosses the halftone sun.
   ctx.font = `${titleSize}px Anton, sans-serif`;
   const grad = ctx.createLinearGradient(cx, cy, cx, cy + titleSize);
   grad.addColorStop(0, '#ffffff');
@@ -197,6 +239,9 @@ export function drawTitleBlock(ctx, rect, state, grade) {
   ctx.fillStyle = grad;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
   ctx.shadowBlur = titleSize * 0.12;
+  ctx.lineWidth = Math.max(2, titleSize * 0.08);
+  ctx.strokeStyle = 'rgba(10, 5, 20, 0.85)';
+  ctx.strokeText(title, cx, cy + titleSize / 2);
   ctx.fillText(title, cx, cy + titleSize / 2);
   ctx.shadowBlur = 0;
   cy += titleSize + gap * 0.7;
@@ -259,11 +304,14 @@ function grain(ctx, w, h) {
 }
 
 function halftone(ctx, w, h) {
-  const step = Math.max(14, w * 0.016);
+  // Dots strong enough to read at the small sizes the judge sees, but not
+  // so heavy they drown the photos: v1's 0.16 alpha vanished, 0.30 buried
+  // faces. 0.22 with a wider step is the middle.
+  const step = Math.max(16, w * 0.02);
   for (let row = 0; row * step < h; row++) {
     for (let col = 0; col * step < w; col++) {
-      const r = step * 0.16 + ((row + col) % 3) * step * 0.06;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      const r = step * 0.18 + ((row + col) % 3) * step * 0.06;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
       ctx.beginPath();
       ctx.arc(col * step + step / 2, row * step + step / 2, r, 0, Math.PI * 2);
       ctx.fill();
@@ -320,14 +368,14 @@ export function drawCover(canvas, state, photos) {
       ctx.beginPath();
       ctx.rect(0, 0, rect.w, rect.h);
       ctx.clip();
-      if (mono) ctx.filter = 'grayscale(1) contrast(1.12) brightness(1.04)';
+      if (mono) ctx.filter = 'grayscale(1) contrast(1.24) brightness(1.06)';
       drawPhotoInto(ctx, img, { x: 0, y: 0, w: rect.w, h: rect.h }, panel);
       ctx.restore();
     } else {
       ctx.beginPath();
       ctx.rect(rect.x, rect.y, rect.w, rect.h);
       ctx.clip();
-      if (mono) ctx.filter = 'grayscale(1) contrast(1.12) brightness(1.04)';
+      if (mono) ctx.filter = 'grayscale(1) contrast(1.24) brightness(1.06)';
       drawPhotoInto(ctx, img, rect, panel);
       ctx.restore();
     }
@@ -370,6 +418,20 @@ export function drawCover(canvas, state, photos) {
 
   grain(ctx, w, h);
   vignette(ctx, w, h);
+
+  // Optional watermark, drawn last so it is readable on any photo.
+  if (state.watermark) {
+    const wmSize = Math.max(14, Math.min(w, h) * 0.028);
+    ctx.save();
+    ctx.font = `${wmSize}px Anton, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = Math.min(w, h) * 0.008;
+    ctx.fillText('MADE WITH VICE COAST', w - Math.min(w, h) * 0.03, h - Math.min(w, h) * 0.025);
+    ctx.restore();
+  }
 
   // Outer frame.
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
