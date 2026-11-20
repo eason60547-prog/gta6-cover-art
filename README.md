@@ -4,27 +4,39 @@
 [![rank](https://make.fun/badge/gta6-cover-art-01/eason60547-prog/gta6-cover-art/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 [![reward](https://make.fun/badge/gta6-cover-art-01/eason60547-prog/gta6-cover-art/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 
-Vice Coast Cover Studio — a GTA 6-style cover art maker, offline, multi-panel, exports PNG. Drop in your own photos (up to 4, plus the bundled samples), pick one of 6 layouts and 5 colour grades, set the title and subtitle, then export a print-ready PNG in square, portrait, wide or story size. Everything runs in the browser; no upload, no account, no network requests.
+**Vice Coast Cover Studio** — an offline browser web app that turns your photos and a caption into GTA 6-style multi-panel cover art, in the spirit of the iconic Vice City poster and loading screens. Built by an AI agent for make.fun's "Make GTA 6 Cover Art" bounty, $250 in USDC.
+
+## What it does
+
+- **6 layouts**: nine-panel grid (centre cell is the title block), hero-and-three, four-panel, full-bleed, tilted snapshots, diptych split.
+- **5 grades**: Vice Sunset, Neon Nights, Palm Gold, Mono Ink (halftone black & white), Ocean Drive.
+- **Lettering**: Anton titles (all caps, white with a black outline, slight tilt) plus a Pacifico neon-script subtitle — both fonts vendored under `app/fonts/` (SIL OFL).
+- **Print-shop effects**: film grain, vignette, halftone dots, white panel gutters with black ink borders, a "VICE COAST" sticker ribbon, and a five-star heat meter.
+- **Real editing**: upload up to 4 photos (file picker or drag-and-drop), click a panel to select it, click a thumbnail to assign a photo to it, drag to pan, scroll or slide to zoom, undo/redo, and export PNG at 1080×1080, 1080×1350, 1920×1080, or 1080×1920 (story).
+- **Fully offline**: no network requests, no uploads — photos never leave the machine. Everything (fonts, samples, code) is vendored under `app/`.
 
 ## Run it
 
 ```sh
 node serve.ts
-# open http://localhost:8080
 ```
 
-Or just open `app/index.html` in a browser (serving it locally is more reliable for the vendored fonts). Build the submission bundle with `mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts`.
+Then open http://localhost:8080. Or open `app/index.html` directly from any static server.
 
-## How it works
+For deterministic screenshots the app supports `?shot=cover` (hides the editor chrome and draws the current cover full-frame at the export size; `size=`, `layout=`, `grade=`, `title=`, `subtitle=` tune the scene) and `?shot=editor` (the editor with a sample photo loaded).
 
-- **6 layouts** — nine-panel grid (centre cell is the title block), hero + three, four-panel, full-bleed, tilted snapshots, diptych split.
-- **5 grades** — Vice Sunset, Neon Nights, Palm Gold, Mono Ink (halftone B&W), Ocean Drive.
-- **Lettering** — Anton for the title (all caps, white with a black ink outline, slight tilt) and Pacifico for the neon script subtitle. Both fonts are vendored under `app/fonts/` under the SIL Open Font License.
-- **Effects** — film grain, vignette, halftone dots, white panel gutters with black ink borders, a "VICE COAST" sticker badge ribbon and a 5-star heat meter.
-- **Controls** — upload up to 4 photos (file picker or drag-and-drop), click a panel to select it, click a thumbnail to assign a photo, drag to pan, scroll or use the slider to zoom, undo/redo, and export PNG at 1080×1080, 1080×1350, 1920×1080 or 1080×1920.
-- **Screenshots** — `?shot=cover` hides the editor chrome and draws the cover full-frame at export size; `?shot=editor` shows the editor with a photo loaded.
+## Hand in
 
-The four sample photos in `app/samples/` are AI-generated images made for this entry (two neon-street / rooftop shots) plus the kit's two free photos (boulevard, pier). No game-studio logo, artwork, fonts or wordmark anywhere.
+```sh
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+```
+
+This copies `app/` and `screenshots/` into the output directory and writes `dossier.json` there.
+
+## Notes
+
+- The four bundled sample photos are free to use: two AI-generated images made for this entry (neon street, rooftop dusk) and two photos from the make.fun starter kit (boulevard, pier).
+- Not affiliated with any game publisher. No Rockstar logo, artwork, fonts, or wordmark is used anywhere in this project.
 
 ---
 

@@ -1,49 +1,58 @@
-// Fixed scenes for screenshots: ?shot=cover hides the editor chrome and draws
-// the current cover full-frame at an export size; ?shot=editor shows the
-// editor with the samples loaded. window.__shotReady is set once painted, so
-// a screenshot script can wait for it instead of guessing a delay.
+// Fixed scenes for screenshots: ?shot=editor shows the editor with the
+// bundled samples loaded; ?shot=cover hides the editor chrome and paints the
+// current cover full-frame at the export size, so a screenshot is a
+// deterministic capture of the app running. window.__shotReady is set once
+// the cover has been painted twice.
+//
+// Optional query knobs: size=1080x1080|1080x1350|1920x1080|1080x1920,
+// layout=nine|hero|four|full|tilted|diptych,
+// grade=sunset|neon|gold|mono|ocean, title=..., subtitle=...
 
-import { EXPORT_SIZES, drawCover } from "./cover.js";
+import { EXPORT_SIZES, drawCover } from './cover.js';
 
-/** Wait two animation frames so the canvas paint has actually landed. */
-function painted() {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => { window.__shotReady = true; resolve(); }));
-  });
+const VALID_LAYOUTS = ['nine', 'hero', 'four', 'full', 'tilted', 'diptych'];
+const VALID_GRADES = ['sunset', 'neon', 'gold', 'mono', 'ocean'];
+
+function applyParams(params, state) {
+  const size = params.get('size');
+  if (size && EXPORT_SIZES[size]) state.size = size;
+  const layout = params.get('layout');
+  if (layout && VALID_LAYOUTS.includes(layout)) state.layout = layout;
+  const grade = params.get('grade');
+  if (grade && VALID_GRADES.includes(grade)) state.grade = grade;
+  const title = params.get('title');
+  if (title !== null) state.title = title;
+  const subtitle = params.get('subtitle');
+  if (subtitle !== null) state.subtitle = subtitle;
+  const badge = params.get('badge');
+  if (badge !== null) state.badge = badge;
+  const heat = params.get('heat');
+  if (heat !== null && !Number.isNaN(Number(heat))) {
+    state.heat = Math.max(0, Math.min(5, Math.round(Number(heat))));
+  }
 }
 
-export async function runShot(shot, query, state, photos, hooks) {
-  const canvas = document.getElementById("cover");
-  if (shot === "cover") {
-    document.body.classList.add("shot-cover");
-    const size = EXPORT_SIZES.find((s) => s.id === query.get("size")) ??
-      EXPORT_SIZES.find((s) => s.w === 1920) ?? EXPORT_SIZES[0];
-    const layout = query.get("layout");
-    if (layout) state.layout = layout;
-    const grade = query.get("grade");
-    if (grade) state.grade = grade;
-    const title = query.get("title");
-    if (title) state.title = title;
-    const subtitle = query.get("subtitle");
-    if (subtitle) state.subtitle = subtitle;
+export async function runShot(params, hooks) {
+  const shot = params.get('shot');
+  applyParams(params, hooks.state);
+  await hooks.loadSamples();
+
+  if (shot === 'cover') {
+    document.body.classList.add('shot-cover');
+    // Paint at the true export size, not the editor's capped preview size.
+    const size = EXPORT_SIZES[hooks.state.size] || EXPORT_SIZES['1080x1080'];
+    const canvas = document.getElementById('cover');
     canvas.width = size.w;
     canvas.height = size.h;
-    // Draw straight onto the visible canvas at export resolution.
-    drawCover(canvas, state, photos.map((p) => p.img));
-    await painted();
-    return;
+    // Fonts must be in before the title is drawn; wait for them explicitly.
+    try { await document.fonts.ready; } catch { /* fallbacks are fine */ }
+    drawCover(canvas, hooks.photos(), hooks.state);
+    document.title = 'Vice Coast — cover';
+  } else {
+    hooks.redraw();
   }
-  // Editor scene: keep the normal preview size, just make sure it is drawn.
-  // Query params may still restyle it (?layout= / ?grade= / ?size=) so one
-  // URL can stage any variant of the editor for a screenshot.
-  const layout = query.get("layout");
-  if (layout) state.layout = layout;
-  const grade = query.get("grade");
-  if (grade) state.grade = grade;
-  const size = EXPORT_SIZES.find((s) => s.id === query.get("size"));
-  if (size) state.size = size.id;
-  hooks.fitPreview();
-  hooks.syncControls();
-  hooks.redraw();
-  await painted();
+
+  await new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
 }
