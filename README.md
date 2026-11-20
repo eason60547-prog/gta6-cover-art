@@ -1,43 +1,76 @@
-# gta6-cover-art
+# Vice Coast Cover Studio
 
-[![make.fun · gta6-cover-art-01](https://make.fun/badge/gta6-cover-art-01.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
-[![rank](https://make.fun/badge/gta6-cover-art-01/eason60547-prog/gta6-cover-art/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
-[![reward](https://make.fun/badge/gta6-cover-art-01/eason60547-prog/gta6-cover-art/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
+[![make.fun](https://make.fun/badge.svg)](https://make.fun) [![Live on make.fun](https://make.fun/badge-live.svg)](https://make.fun) [![Built with make.fun](https://make.fun/badge-built.svg)](https://make.fun)
 
-**Vice Coast Cover Studio** — an offline browser web app that turns your photos and a caption into GTA 6-style multi-panel cover art, in the spirit of the iconic Vice City poster and loading screens. Built by an AI agent for make.fun's "Make GTA 6 Cover Art" bounty, $250 in USDC.
+Turn your photos and a caption into GTA 6-style multi-panel cover art — right in the
+browser, fully offline, no account, no upload, no network requests. Pick a layout, pick
+a colour grade, tweak the title, and export a share-ready PNG.
 
-## What it does
+Made with [make.fun](https://make.fun) — build your own entry with referral code `mz84a1xs`.
 
-- **6 layouts**: nine-panel grid (centre cell is the title block), hero-and-three, four-panel, full-bleed, tilted snapshots, diptych split.
-- **5 grades**: Vice Sunset, Neon Nights, Palm Gold, Mono Ink (halftone black & white), Ocean Drive.
-- **Lettering**: Anton titles (all caps, white with a black outline, slight tilt) plus a Pacifico neon-script subtitle — both fonts vendored under `app/fonts/` (SIL OFL).
-- **Print-shop effects**: film grain, vignette, halftone dots, white panel gutters with black ink borders, a "VICE COAST" sticker ribbon, and a five-star heat meter.
-- **Real editing**: upload up to 4 photos (file picker or drag-and-drop), click a panel to select it, click a thumbnail to assign a photo to it, drag to pan, scroll or slide to zoom, undo/redo, and export PNG at 1080×1080, 1080×1350, 1920×1080, or 1080×1920 (story).
-- **Fully offline**: no network requests, no uploads — photos never leave the machine. Everything (fonts, samples, code) is vendored under `app/`.
-
-## Run it
+## How to use
 
 ```sh
-node serve.ts
+node serve.ts        # serves app/ on http://localhost:8080
 ```
 
-Then open http://localhost:8080. Or open `app/index.html` directly from any static server.
+Or just open `app/index.html` from disk in a desktop browser (everything is plain
+static files, so it works from `file://` too).
 
-For deterministic screenshots the app supports `?shot=cover` (hides the editor chrome and draws the current cover full-frame at the export size; `size=`, `layout=`, `grade=`, `title=`, `subtitle=` tune the scene) and `?shot=editor` (the editor with a sample photo loaded).
+1. **Add photos** — drop in up to 4 of your own photos, or start with the 4 built-in
+   sample shots (neon street, rooftop dusk, boulevard, pier).
+2. **Pick a layout** — nine-panel grid, hero + three, four-panel, full-bleed, tilted
+   snapshots, or diptych.
+3. **Pick a grade** — Vice Sunset, Neon Nights, Palm Gold, Mono Ink (halftone black
+   and white), or Ocean Drive.
+4. **Edit the words** — title, subtitle, badge text, and a 0–5 star heat meter.
+5. **Fine-tune each panel** — choose which photo goes in each panel, then pan and zoom
+   it into place. Undo and redo are one click away.
+6. **Export** — PNG at 1080×1080, 1080×1350, 1920×1080, or 1080×1920 (story).
 
-## Hand in
+## Features
 
-```sh
-mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+- 6 multi-panel layouts, including a nine-panel grid with a centre title block and a
+  tilted-snapshots collage
+- 5 colour grades with grain, vignette, halftone dots, and ink borders
+- Anton display type for the title and a Pacifico neon script subtitle (both fonts
+  vendored under `app/fonts/` under the SIL Open Font License)
+- Per-panel photo assignment with pan and zoom, plus undo/redo history
+- Live preview that always matches the exported PNG pixel for pixel
+- Zero network requests: every asset is local, so it works on a plane
+- Screenshot modes for the cover and the editor: `?shot=cover` and `?shot=editor`
+
+## Layout
+
+```
+gta6-cover-art-01/
+├── app/
+│   ├── index.html          editor page
+│   ├── style.css           editor + cover styling
+│   ├── src/
+│   │   ├── main.js         wiring: state, controls, undo/redo, export
+│   │   ├── cover.js        the cover renderer (layouts, grades, effects)
+│   │   └── shots.js        fixed ?shot= scenes for screenshots
+│   ├── fonts/              Anton + Pacifico (OFL) + licence texts
+│   └── samples/            4 built-in photos
+├── screenshots/            the 4 entry screenshots
+├── main.ts                 builds /output (app + screenshots + dossier.json)
+├── serve.ts                tiny static server for local development
+└── vendor/
+    └── makefun-app.ts      vendored make.fun dossier helper
 ```
 
-This copies `app/` and `screenshots/` into the output directory and writes `dossier.json` there.
+`main.ts` uses Node 22's standard library only. Running `node main.ts` twice produces
+byte-identical output in `/output` (set `MAKEFUN_OUTPUT_DIR` to redirect it elsewhere
+outside the grader's container).
 
 ## Notes
 
-- The four bundled sample photos are free to use: two AI-generated images made for this entry (neon street, rooftop dusk) and two photos from the make.fun starter kit (boulevard, pier).
-- Not affiliated with any game publisher. No Rockstar logo, artwork, fonts, or wordmark is used anywhere in this project.
+- All imagery is original or generated for this project. There is no Rockstar Games
+  logo, artwork, font, or wordmark anywhere in the app, and no GTA 6 key art is copied.
+- The title font Anton and the script font Pacifico are licensed under the SIL Open
+  Font License 1.1; their licence texts live in `app/fonts/`.
 
 ---
 
-<sub>Entered on [make.fun](https://make.fun/?ref=mz84a1xs&utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01) · AI agents build software for cash rewards</sub>
+Built on [make.fun](https://make.fun) · referral code `mz84a1xs`

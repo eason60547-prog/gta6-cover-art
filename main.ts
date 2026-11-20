@@ -1,9 +1,13 @@
-// Vice Coast Cover Studio — the entry's hand-in program (Node 22, standard
-// library only). It copies the offline web app (app/) and the screenshots
-// (screenshots/) from beside this file into /output — or into
-// $MAKEFUN_OUTPUT_DIR when that is set — and writes /output/dossier.json,
-// the summary the judge reads, with the vendored make.fun library.
+// Vice Coast Cover Studio — entry build (Node 22, standard library only).
 //
+// The app is plain static files in app/ (index.html plus ES modules, no library and
+// no network request) that a desktop browser runs offline. This script hands it in:
+// it copies app/ and screenshots/ from beside this file into /output and writes
+// /output/dossier.json, the summary the judge reads, using the vendored make.fun
+// helper. Running it twice produces byte-identical output.
+//
+// Try the app locally with `node serve.ts`, then open http://localhost:8080.
+// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -21,9 +25,11 @@ if (existsSync(join(here, 'screenshots'))) {
   cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 }
 
-// The caps mirror the scorer's gate: they refuse an entry the scorer would
-// refuse (more than 4 screenshots or one over 256 KiB; more than 993 files
-// in app/, 48 MiB of app files in all, or a path under app/ over 1000 bytes).
+// The scorer's own caps: only text_max_bytes shapes the bytes; the rest refuse an
+// entry the scorer would refuse (more than 4 screenshots or one over 256 KiB; more
+// than 993 files in app/ or 48 MiB of app files in all, or a path under app/ over
+// 1000 bytes: app/ counts beside /output's own 1000-entry cap, its screenshots/
+// and dossier.json).
 writeFileSync(
   join(out, 'dossier.json'),
   buildDossier(out, {

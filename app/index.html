@@ -8,81 +8,91 @@
 </head>
 <body>
 <main class="app">
-  <section class="panel controls" aria-label="Cover controls">
-    <header>
-      <h1>Vice Coast <span>Cover Studio</span></h1>
-      <p class="tagline">Your photos, dressed up as a Vice City&ndash;style multi-panel cover. Everything runs offline, in your browser.</p>
+  <section class="controls" aria-label="Cover editor controls">
+    <header class="brand">
+      <p class="brand-kicker">Vice Coast</p>
+      <h1>Cover Studio</h1>
+      <p class="brand-sub">Your photos + a caption, made into GTA-style cover art. Offline, no uploads.</p>
     </header>
 
-    <div class="group">
+    <section class="group" aria-label="Photos">
       <h2>1 · Photos</h2>
-      <div id="dropzone" class="dropzone">
-        <label class="upload-btn">Upload up to 4 photos
-          <input id="upload" type="file" accept="image/*" multiple>
-        </label>
-        <span class="hint">…or drop images here</span>
-      </div>
-      <p id="uploadHint" class="hint">Loading samples…</p>
-      <div id="thumbs" class="thumbs" aria-label="Loaded photos — click one to put it in the selected panel"></div>
-      <p class="hint">Click a thumbnail to assign that photo to the selected panel.</p>
-    </div>
+      <p class="hint">Up to 4 photos. Click a thumbnail to use it, or drop in your own.</p>
+      <div id="thumbs" class="thumbs"></div>
+      <label class="file-btn">Add your photos
+        <input id="photoInput" type="file" accept="image/*" multiple>
+      </label>
+    </section>
 
-    <div class="group">
+    <section class="group" aria-label="Layout">
       <h2>2 · Layout</h2>
-      <div id="layouts" class="picks"></div>
-    </div>
+      <div id="layouts" class="choice-grid"></div>
+    </section>
 
-    <div class="group">
+    <section class="group" aria-label="Colour grade">
       <h2>3 · Grade</h2>
-      <div id="grades" class="picks"></div>
-    </div>
+      <div id="grades" class="choice-grid"></div>
+    </section>
 
-    <div class="group">
-      <h2>4 · Lettering</h2>
+    <section class="group" aria-label="Words">
+      <h2>4 · Words</h2>
       <label>Title
-        <input id="title" type="text" maxlength="24" value="VICE COAST">
+        <input id="title" type="text" maxlength="24" value="VICE COAST" autocomplete="off">
       </label>
       <label>Subtitle
-        <input id="subtitle" type="text" maxlength="48" value="Neon nights, palm dreams">
+        <input id="subtitle" type="text" maxlength="48" value="Neon nights, palm dreams" autocomplete="off">
       </label>
-      <label>Sticker badge
-        <input id="badge" type="text" maxlength="18" value="VICE COAST">
+      <label>Badge
+        <input id="badge" type="text" maxlength="24" value="VICE COAST" autocomplete="off">
       </label>
-      <label>Heat <span id="heatValue" class="value">4 / 5</span>
-        <input id="heat" type="range" min="0" max="5" step="1" value="4">
+      <label>Heat
+        <span class="heat-row">
+          <input id="heat" type="range" min="0" max="5" step="1" value="4">
+          <span id="heatStars" class="heat-stars" aria-live="polite">★★★★☆</span>
+        </span>
       </label>
-    </div>
+    </section>
 
-    <div class="group">
-      <h2>5 · Selected panel</h2>
-      <p id="panelLabel" class="hint">Panel 1 of 8</p>
-      <label>Zoom <span id="zoomValue" class="value">100%</span>
-        <input id="zoom" type="range" min="1" max="3" step="0.05" value="1">
+    <section class="group" aria-label="Panel">
+      <h2>5 · This panel</h2>
+      <label>Panel
+        <select id="panelSelect"></select>
       </label>
-      <p class="hint">Click a panel to select it. Drag inside it to pan the photo, scroll to zoom.</p>
-    </div>
+      <label>Photo in this panel
+        <select id="panelPhoto"></select>
+      </label>
+      <label>Pan left–right
+        <input id="panX" type="range" min="-50" max="50" step="1" value="0">
+      </label>
+      <label>Pan up–down
+        <input id="panY" type="range" min="-50" max="50" step="1" value="0">
+      </label>
+      <label>Zoom
+        <input id="zoom" type="range" min="100" max="250" step="5" value="100">
+      </label>
+    </section>
 
-    <div class="group">
+    <section class="group" aria-label="Export">
       <h2>6 · Export</h2>
-      <div id="sizes" class="picks"></div>
-      <div class="actions">
+      <label>Size
+        <select id="size">
+          <option value="1080x1080" selected>1080 × 1080 · square</option>
+          <option value="1080x1350">1080 × 1350 · portrait</option>
+          <option value="1920x1080">1920 × 1080 · wide</option>
+          <option value="1080x1920">1080 × 1920 · story</option>
+        </select>
+      </label>
+      <div class="btn-row">
         <button id="undo" type="button" disabled>Undo</button>
         <button id="redo" type="button" disabled>Redo</button>
-        <button id="reset" type="button">Reset</button>
-        <button id="export" type="button" class="primary">Export PNG</button>
       </div>
+      <button id="export" class="export-btn" type="button">Export PNG</button>
       <p id="status" role="status"></p>
-    </div>
-
-    <footer>Not affiliated with any game publisher. Fonts: Anton &amp; Pacifico (SIL OFL).</footer>
+    </section>
   </section>
 
   <section class="stage" aria-label="Cover preview">
-    <div class="canvas-wrap">
-      <canvas id="cover" width="900" height="900" aria-label="The cover"></canvas>
-      <div id="selection" class="selection" aria-hidden="true"></div>
-    </div>
-    <p class="hint">Tip: the nine-panel grid keeps the middle cell for the title — pure poster style.</p>
+    <canvas id="cover" width="1080" height="1080" aria-label="The cover preview"></canvas>
   </section>
 </main>
 <script type="module" src="./src/main.js"></script>
