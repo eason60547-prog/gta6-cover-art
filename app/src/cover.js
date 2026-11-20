@@ -11,6 +11,9 @@ export const LAYOUTS = {
   full: { label: 'Full-bleed', photos: 1 },
   tilted: { label: 'Tilted snapshots', photos: 3 },
   diptych: { label: 'Diptych', photos: 2 },
+  // Spotlight: a single photo fills the canvas and the title block sits
+  // across its lower third, so one image carries the whole cover.
+  spotlight: { label: 'Spotlight', photos: 1 },
 };
 
 export const GRADES = {
@@ -74,6 +77,11 @@ export function panelRects(layout, w, h) {
   if (layout === 'full') {
     return [{ x: 0, y: 0, w, h }];
   }
+  if (layout === 'spotlight') {
+    // One photo, edge to edge: the title block drawn later overlaps the
+    // lower part of this same photo instead of getting its own cell.
+    return [{ x: 0, y: 0, w, h }];
+  }
   if (layout === 'tilted') {
     const pw = w * 0.52;
     const ph = h * 0.52;
@@ -96,6 +104,10 @@ export function titleRect(layout, w, h) {
   if (layout === 'nine') return null; // the centre cell is the title block
   if (layout === 'tilted') return { x: w * 0.06, y: h * 0.015, w: w * 0.88, h: h * 0.10 };
   if (layout === 'full') return { x: w * 0.05, y: h * 0.68, w: w * 0.90, h: h * 0.28 };
+  // Spotlight: the title rides low over the photo itself — a wide block
+  // starting three-fifths down the canvas and running to just above the
+  // bottom edge, leaving the top of the picture clear to breathe.
+  if (layout === 'spotlight') return { x: w * 0.05, y: h * 0.60, w: w * 0.90, h: h * 0.34 };
   return { x: w * 0.04, y: h * 0.80, w: w * 0.92, h: h * 0.17 };
 }
 
@@ -405,6 +417,18 @@ export function drawCover(canvas, state, photos) {
   ctx.fillRect(0, 0, w, h);
 
   if (mono) halftone(ctx, w, h);
+
+  // Spotlight scrim: a soft dark gradient rising from the bottom of the
+  // photo, laid down before the title block, so the lettering stays
+  // readable even over a bright sky or a sunlit street, and the lower
+  // edge of the picture melts into the title instead of cutting off hard.
+  if (state.layout === 'spotlight') {
+    const scrim = ctx.createLinearGradient(0, h * 0.45, 0, h);
+    scrim.addColorStop(0, 'rgba(5, 3, 10, 0)');
+    scrim.addColorStop(1, 'rgba(5, 3, 10, 0.72)');
+    ctx.fillStyle = scrim;
+    ctx.fillRect(0, h * 0.45, w, h * 0.55);
+  }
 
   // Title band for layouts whose title is not a centre cell.
   const tr = titleRect(state.layout, w, h);

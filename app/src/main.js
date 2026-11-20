@@ -96,6 +96,39 @@ function applyPreset(preset) {
   statusEl.textContent = `${preset.label} look applied — export it or make it yours.`;
 }
 
+/** Picks one entry from an array at random. */
+function pickRandom(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+/** Deals a fresh cover in one tap: a random layout, a random grade, and a
+ *  random photo in every panel. The previous cover is one Undo away, so a
+ *  shuffle you dislike costs nothing. */
+function shuffleCover() {
+  pushHistory();
+  state.layout = pickRandom(Object.keys(LAYOUTS));
+  state.grade = pickRandom(Object.keys(GRADES));
+  const slots = photoSlots(state.layout);
+  const deck = photos.map((_, i) => i);
+  // Shuffle the deck of photo indexes, then deal one card to each panel in
+  // turn, cycling back through the deck when panels outnumber photos.
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  state.panels = Array.from({ length: slots }, (_, i) => ({
+    photo: deck.length ? deck[i % deck.length] : 0,
+    panX: 0.5,
+    panY: 0.5,
+    zoom: 1,
+  }));
+  selectedPanel = 0;
+  activePreset = '';
+  syncControls();
+  redraw();
+  statusEl.textContent = `Shuffled — ${LAYOUTS[state.layout].label} in ${GRADES[state.grade].label}. Undo brings the old cover back.`;
+}
+
 function restore(json) {
   state = JSON.parse(json);
   syncControls();
@@ -399,7 +432,9 @@ function wireControls() {
 
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('redo').addEventListener('click', redo);
+  document.getElementById('shuffle').addEventListener('click', shuffleCover);
   document.getElementById('export').addEventListener('click', exportPNG);
+  wireKeyboardShortcuts();
 
   // Clicking a panel on the preview selects it for crop and assignment.
   canvas.addEventListener('click', (e) => {
@@ -418,6 +453,49 @@ function wireControls() {
       }
       slot++;
     }
+  });
+}
+
+/** Keyboard shortcuts: arrow keys walk the panels, Ctrl/Cmd+Z undoes,
+ *  Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes, and plain S shuffles a fresh cover.
+ *  The shortcuts stay quiet while the cursor is inside a text field, a
+ *  dropdown or a slider, so Ctrl+Z keeps meaning "undo typing" exactly
+ *  where you are typing. */
+function wireKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    const target = e.target;
+    const typing =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLSelectElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    if (typing) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === 'y') {
+      e.preventDefault();
+      redo();
+      return;
+    }
+    // Plain S deals a fresh cover, the keyboard twin of the Shuffle button.
+    if (!mod && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      shuffleCover();
+      return;
+    }
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const count = photoSlots(state.layout);
+    if (!count) return;
+    const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+    selectedPanel = (selectedPanel + step + count) % count;
+    syncPanelControls();
+    statusEl.textContent = `Panel ${selectedPanel + 1} selected.`;
   });
 }
 

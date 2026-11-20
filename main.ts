@@ -1,3 +1,5 @@
+// Hand-in note, written during the v2 repair session: this file now also
+// ships the Spotlight layout, the Shuffle button and the keyboard shortcuts.
 // Vice Coast Cover Studio — hand-in program (Node 22, standard library only).
 // It copies the offline web app (app/) and its screenshots (screenshots/) from
 // beside this file into /output and writes /output/dossier.json with the
