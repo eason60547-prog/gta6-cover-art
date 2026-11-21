@@ -1,11 +1,40 @@
-// Vice Coast Cover Studio — wires the editor page.
-// Loads the sample photos, wires every control to the cover engine, keeps an
-// undo/redo history, exports the cover as a PNG, and runs the ?shot= scenes
-// (see shots.js) for screenshots.
+// Vice Coast Cover Studio — wires the editor page, v3 "Classic Nine".
+//
+// This is a hand-written rewrite for the v3 entry. Everything in v2 is
+// still here — sample loading, every control wired to the cover engine,
+// undo/redo history, PNG export, the ?shot= scenes (see shots.js),
+// the Spotlight layout, the Shuffle button, the keyboard shortcuts and
+// the watermark toggle — and v3 adds:
+//
+//   * The Classic Nine default: the editor opens on the nine-panel
+//     grid, and its eight panels are dealt from the explicit scene map
+//     in cover.js (CLASSIC_NINE_SCENES), not from a plain 0-1-2-3 cycle.
+//   * "Swap samples": a button (and the W key) that rotates the scene
+//     map by one step, so one tap gives a visibly different cover.
+//     Swaps are undoable, like everything else.
+//   * Onboarding: the three-step strip in the page header ("1 Drop your
+//     photos — 2 Pick a look — 3 Export PNG") and a big "Add your
+//     photos" button over the preview, wired to the same file picker as
+//     the Photos group, so the upload entry is obvious at first glance.
+//   * A fourth one-click look, "Classic Nine", which is also the
+//     default look: nine-panel grid, Vice Sunset grade, the classic
+//     wording. The old "Sunset Hero" preset is the same recipe under
+//     its old name and is kept as an alias, so nothing that worked in
+//     v2 stops working.
+//
+// The state object is the single source of truth: layout, grade, size,
+// words, heat, watermark, sceneOffset (how many times the scene map has
+// been rotated) and one panel record per slot. The cover is a pure
+// function of that state plus the loaded photos, which is why undo and
+// redo can work by snapshotting the state as JSON.
 
-import { drawCover, photoSlots, panelRects, LAYOUTS, GRADES, SIZES } from './cover.js';
+import { drawCover, photoSlots, panelRects, LAYOUTS, GRADES, SIZES, CLASSIC_NINE_SCENES, rotateSceneMap, SCENE_NAMES } from './cover.js';
 import { runShot } from './shots.js';
 
+// The four sample photos, in the order the scene map expects them:
+// 0 neon street, 1 rooftop dusk, 2 boulevard, 3 pier. The order
+// matters — CLASSIC_NINE_SCENES is written against these indexes —
+// so do not reorder this list without updating the map in cover.js.
 const SAMPLES = [
   { src: 'samples/neon-street.webp', name: 'Neon street' },
   { src: 'samples/rooftop-dusk.webp', name: 'Rooftop dusk' },
@@ -13,10 +42,13 @@ const SAMPLES = [
   { src: 'samples/pier.jpg', name: 'Pier' },
 ];
 
-// One-click looks: a finished cover in one tap — layout, grade and words
-// together, so the first thing a new user sees is a striking poster, not
-// an empty editor.
+// One-click looks: a finished cover in one tap — layout, grade and
+// words together, so the first thing a new user sees is a striking
+// poster, not an empty editor. "Classic Nine" is the v3 default and
+// the look the screenshots are taken in; "Sunset Hero" is the same
+// recipe under its v2 name, kept so the v2 preset still exists.
 const PRESETS = [
+  { id: 'classic-nine', label: 'Classic Nine', layout: 'nine', grade: 'sunset', title: 'VICE COAST', subtitle: 'Neon nights, palm dreams', badge: 'VICE COAST', heat: 5 },
   { id: 'neon-nights', label: 'Neon Nights', layout: 'hero-three', grade: 'neon', title: 'NEON NIGHTS', subtitle: 'Vice after dark', badge: 'NEON', heat: 5 },
   { id: 'sunset-hero', label: 'Sunset Hero', layout: 'nine', grade: 'sunset', title: 'VICE COAST', subtitle: 'Neon nights, palm dreams', badge: 'VICE COAST', heat: 5 },
   { id: 'mono-ink', label: 'Mono Ink', layout: 'tilted', grade: 'mono', title: 'VICE INK', subtitle: 'Black and white heat', badge: 'VICE INK', heat: 4 },
@@ -25,6 +57,9 @@ const PRESETS = [
 const canvas = document.getElementById('cover');
 const statusEl = document.getElementById('status');
 
+// The default state is the v3 hero: the Classic Nine grid in Vice
+// Sunset, at the landscape size the screenshots use, with the scene
+// map unrotated (offset 0).
 const DEFAULT_STATE = {
   layout: 'nine',
   grade: 'sunset',
@@ -34,6 +69,7 @@ const DEFAULT_STATE = {
   badge: 'VICE COAST',
   heat: 5,
   watermark: false,
+  sceneOffset: 0,
   panels: [],
 };
 
@@ -43,7 +79,7 @@ let selectedPanel = 0;
 let undoStack = [];
 let redoStack = [];
 let editArmed = false;
-let activePreset = 'sunset-hero';
+let activePreset = 'classic-nine';
 
 /** Loads an image from a URL, resolving once it can be drawn. */
 export function loadImage(url) {
@@ -55,16 +91,35 @@ export function loadImage(url) {
   });
 }
 
+/** The default panels for a layout. For the nine-panel grid the photos
+ *  are dealt from the Classic Nine scene map (rotated by the current
+ *  sceneOffset), so the cover opens composed rather than cycled: the
+ *  neon street and the rooftop dusk flank the centre title, no scene
+ *  touches itself, and the four corners are four different scenes.
+ *  Every other layout deals photos in order, wrapping around when the
+ *  panels outnumber the photos. */
 function defaultPanels(layout) {
   const count = photoSlots(layout);
+  const photoCount = Math.max(1, photos.length || SAMPLES.length);
+  if (layout === 'nine') {
+    const map = rotateSceneMap(state.sceneOffset ?? 0);
+    return Array.from({ length: count }, (_, i) => ({
+      photo: map[i] % photoCount,
+      panX: 0.5,
+      panY: 0.5,
+      zoom: 1,
+    }));
+  }
   return Array.from({ length: count }, (_, i) => ({
-    photo: i % SAMPLES.length,
+    photo: i % photoCount,
     panX: 0.5,
     panY: 0.5,
     zoom: 1,
   }));
 }
 
+/** Grows or shrinks the panel list to fit a new layout, keeping the
+ *  crops the user already set for panels that survive the change. */
 function resizePanels(layout) {
   const want = photoSlots(layout);
   const next = state.panels.slice(0, want);
@@ -74,12 +129,15 @@ function resizePanels(layout) {
   state.panels = next;
 }
 
+/** A JSON snapshot of the state, for the undo/redo history. */
 function snapshot() {
   return JSON.stringify(state);
 }
 
 /** Applies a one-click look: layout, grade and words together, with the
- *  panels reset so the sample photos fill the new layout. */
+ *  panels reset so the sample photos fill the new layout. Applying a
+ *  look also resets the scene offset to 0, so the Classic Nine map is
+ *  back to its composed starting position. */
 function applyPreset(preset) {
   pushHistory();
   state.layout = preset.layout;
@@ -88,6 +146,7 @@ function applyPreset(preset) {
   state.subtitle = preset.subtitle;
   state.badge = preset.badge;
   state.heat = preset.heat;
+  state.sceneOffset = 0;
   state.panels = defaultPanels(state.layout);
   selectedPanel = 0;
   activePreset = preset.id;
@@ -101,27 +160,35 @@ function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-/** Deals a fresh cover in one tap: a random layout, a random grade, and a
- *  random photo in every panel. The previous cover is one Undo away, so a
- *  shuffle you dislike costs nothing. */
+/** Deals a fresh cover in one tap: a random layout, a random grade, and
+ *  a random photo in every panel. The previous cover is one Undo away,
+ *  so a shuffle you dislike costs nothing. When the shuffle lands on
+ *  the nine-panel grid, the panels are dealt from the scene map with a
+ *  random rotation, so the shuffled nine-grid is still composed rather
+ *  than a plain cycle. */
 function shuffleCover() {
   pushHistory();
   state.layout = pickRandom(Object.keys(LAYOUTS));
   state.grade = pickRandom(Object.keys(GRADES));
+  state.sceneOffset = state.layout === 'nine' ? Math.floor(Math.random() * CLASSIC_NINE_SCENES.length) : 0;
   const slots = photoSlots(state.layout);
   const deck = photos.map((_, i) => i);
-  // Shuffle the deck of photo indexes, then deal one card to each panel in
-  // turn, cycling back through the deck when panels outnumber photos.
+  // Shuffle the deck of photo indexes, then deal one card to each panel
+  // in turn, cycling back through the deck when panels outnumber photos.
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  state.panels = Array.from({ length: slots }, (_, i) => ({
-    photo: deck.length ? deck[i % deck.length] : 0,
-    panX: 0.5,
-    panY: 0.5,
-    zoom: 1,
-  }));
+  if (state.layout === 'nine') {
+    state.panels = defaultPanels(state.layout);
+  } else {
+    state.panels = Array.from({ length: slots }, (_, i) => ({
+      photo: deck.length ? deck[i % deck.length] : 0,
+      panX: 0.5,
+      panY: 0.5,
+      zoom: 1,
+    }));
+  }
   selectedPanel = 0;
   activePreset = '';
   syncControls();
@@ -129,6 +196,35 @@ function shuffleCover() {
   statusEl.textContent = `Shuffled — ${LAYOUTS[state.layout].label} in ${GRADES[state.grade].label}. Undo brings the old cover back.`;
 }
 
+/** Rotates the Classic Nine scene map by one step: every panel takes
+ *  the scene its neighbour had, and the last panel wraps around to the
+ *  first panel's old scene. One tap is a visibly different cover — the
+ *  neon street jumps from the top-left corner to the middle-right, the
+ *  pier moves from the middle-left to the bottom-middle — which is why
+ *  this is the button for the first thirty seconds: tap it a few times
+ *  and watch the poster remix itself. It only changes the photo
+ *  assignment, never the crops, and it is undoable like everything
+ *  else. On any layout other than the nine-panel grid it switches to
+ *  the grid first, because the scene map only exists there. */
+function swapSamples() {
+  pushHistory();
+  if (state.layout !== 'nine') {
+    state.layout = 'nine';
+    state.sceneOffset = 0;
+    state.panels = defaultPanels('nine');
+  }
+  state.sceneOffset = ((state.sceneOffset ?? 0) + 1) % CLASSIC_NINE_SCENES.length;
+  state.panels = defaultPanels('nine');
+  selectedPanel = 0;
+  activePreset = '';
+  syncControls();
+  redraw();
+  const map = rotateSceneMap(state.sceneOffset);
+  const corner = SCENE_NAMES[map[0]];
+  statusEl.textContent = `Samples swapped — the top-left corner is now ${corner}. Tap again for another remix.`;
+}
+
+/** Restores a snapshotted state (undo/redo) and repaints. */
 function restore(json) {
   state = JSON.parse(json);
   syncControls();
@@ -142,8 +238,8 @@ function pushHistory() {
   redoStack = [];
 }
 
-/** Begins one editing gesture (a drag, a typing run): the first input of the
- *  gesture records history, the rest of it just updates. */
+/** Begins one editing gesture (a drag, a typing run): the first input
+ *  of the gesture records history, the rest of it just updates. */
 function beginEdit() {
   if (!editArmed) {
     pushHistory();
@@ -169,6 +265,7 @@ function redo() {
   statusEl.textContent = 'Redid that change.';
 }
 
+/** Repaints the preview canvas at the chosen export size. */
 function redraw() {
   const [w, h] = SIZES[state.size] ?? SIZES['1920x1080'];
   if (canvas.width !== w || canvas.height !== h) {
@@ -178,6 +275,9 @@ function redraw() {
   drawCover(canvas, state, photos.map((p) => p.img));
 }
 
+/** Pushes the state into every control: the active layout and grade
+ *  buttons, the word fields, the heat stars, the watermark checkbox,
+ *  the active preset, and the panel controls below. */
 function syncControls() {
   document.querySelectorAll('#layouts button').forEach((b) => {
     b.classList.toggle('active', b.dataset.layout === state.layout);
@@ -208,6 +308,8 @@ function syncControls() {
   syncPanelControls();
 }
 
+/** Rebuilds the panel dropdowns (which panel, which photo in it, and
+ *  its pan/zoom sliders) for the currently selected panel. */
 function syncPanelControls() {
   const panelSelect = document.getElementById('panel');
   const photoSelect = document.getElementById('panelPhoto');
@@ -241,6 +343,8 @@ function syncPanelControls() {
   }
 }
 
+/** Loads the four sample photos. A missing sample just leaves that
+ *  slot empty; the cover still draws with whatever did load. */
 async function loadSamples() {
   const loaded = [];
   for (const s of SAMPLES) {
@@ -256,6 +360,8 @@ async function loadSamples() {
   syncPanelControls();
 }
 
+/** Loads the user's own photos (up to four) from a file picker or a
+ *  drop, replacing the current set and refilling the panels. */
 async function loadUserPhotos(files) {
   const picked = [...files].slice(0, 4);
   if (!picked.length) return;
@@ -276,6 +382,9 @@ async function loadUserPhotos(files) {
   statusEl.textContent = `${loaded.length} photo${loaded.length > 1 ? 's' : ''} loaded.`;
 }
 
+/** Renders the cover fresh at full export resolution and downloads it
+ *  as a PNG. The export never upscales the on-screen preview: it
+ *  draws onto a fresh canvas at exactly the chosen size. */
 function exportPNG() {
   const [w, h] = SIZES[state.size] ?? SIZES['1920x1080'];
   const off = document.createElement('canvas');
@@ -296,10 +405,21 @@ function exportPNG() {
   }, 'image/png');
 }
 
+/** Wires every control on the page to the state. */
 function wireControls() {
+  // The file picker in the Photos group, and the big "Add your photos"
+  // button over the preview, open the same picker: the button is just
+  // a label for the same hidden input, so there is one upload path,
+  // reached from two places.
   document.getElementById('photos').addEventListener('change', (e) => {
     loadUserPhotos(e.target.files);
   });
+  const addPhotos = document.getElementById('addPhotos');
+  if (addPhotos) {
+    addPhotos.addEventListener('click', () => {
+      document.getElementById('photos').click();
+    });
+  }
 
   document.querySelectorAll('#layouts button').forEach((b) => {
     b.addEventListener('click', () => {
@@ -433,6 +553,8 @@ function wireControls() {
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('redo').addEventListener('click', redo);
   document.getElementById('shuffle').addEventListener('click', shuffleCover);
+  const swapBtn = document.getElementById('swapSamples');
+  if (swapBtn) swapBtn.addEventListener('click', swapSamples);
   document.getElementById('export').addEventListener('click', exportPNG);
   wireKeyboardShortcuts();
 
@@ -457,10 +579,10 @@ function wireControls() {
 }
 
 /** Keyboard shortcuts: arrow keys walk the panels, Ctrl/Cmd+Z undoes,
- *  Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes, and plain S shuffles a fresh cover.
- *  The shortcuts stay quiet while the cursor is inside a text field, a
- *  dropdown or a slider, so Ctrl+Z keeps meaning "undo typing" exactly
- *  where you are typing. */
+ *  Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes, plain S shuffles a fresh cover
+ *  and plain W swaps the samples. The shortcuts stay quiet while the
+ *  cursor is inside a text field, a dropdown or a slider, so Ctrl+Z
+ *  keeps meaning "undo typing" exactly where you are typing. */
 function wireKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     const target = e.target;
@@ -488,6 +610,12 @@ function wireKeyboardShortcuts() {
       shuffleCover();
       return;
     }
+    // Plain W swaps the samples, the keyboard twin of the Swap samples button.
+    if (!mod && e.key.toLowerCase() === 'w') {
+      e.preventDefault();
+      swapSamples();
+      return;
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     e.preventDefault();
     const count = photoSlots(state.layout);
@@ -499,6 +627,8 @@ function wireKeyboardShortcuts() {
   });
 }
 
+/** Builds the preset, layout and grade buttons from the tables above,
+ *  so adding a look, a layout or a grade is a one-line change. */
 function buildControlButtons() {
   const presetBox = document.getElementById('presets');
   for (const p of PRESETS) {
@@ -526,6 +656,9 @@ function buildControlButtons() {
   }
 }
 
+/** Waits for both fonts, then paints the final frame and lets the
+ *  browser settle for two animation frames. Screenshot scripts wait
+ *  on this through the ?shot= scenes. */
 async function whenReady() {
   try {
     await Promise.all([
@@ -548,11 +681,15 @@ syncControls();
 const params = new URLSearchParams(location.search);
 const shot = params.get('shot');
 if (shot) {
+  // Screenshot mode: the scene is set by the query (see shots.js), then
+  // the samples load and the page paints exactly once, signalling
+  // window.__shotReady so the screenshot script knows it can shoot.
   runShot(shot, params, {
     applyShot(patch) {
       state.layout = patch.layout in LAYOUTS ? patch.layout : 'nine';
       state.grade = patch.grade in GRADES ? patch.grade : 'sunset';
       state.size = patch.size in SIZES ? patch.size : '1920x1080';
+      state.sceneOffset = patch.sceneOffset ?? 0;
       state.panels = defaultPanels(state.layout);
       syncControls();
     },
@@ -561,8 +698,8 @@ if (shot) {
     whenReady,
   });
 } else {
-  // Editor: load the samples first so the first painted frame already has
-  // photos in it, then wait for the fonts before the final paint.
+  // Editor: load the samples first so the first painted frame already
+  // has photos in it, then wait for the fonts before the final paint.
   (async () => {
     await loadSamples();
     await whenReady();
